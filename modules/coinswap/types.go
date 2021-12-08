@@ -154,11 +154,26 @@ func (msg MsgSwapOrder) GetSigners() []sdk.AccAddress {
 	return []sdk.AccAddress{from}
 }
 
-func (m QueryLiquidityResponse) Convert() interface{} {
+func (m QueryLiquidityPoolResponse) Convert() interface{} {
 	return &QueryPoolResponse{
-		BaseCoin:  m.Standard,
-		TokenCoin: m.Token,
-		Liquidity: m.Liquidity,
-		Fee:       m.Fee,
+		BaseCoin:  m.Pool.Standard,
+		TokenCoin: m.Pool.Token,
+		Liquidity: m.Pool.Lpt,
+		Fee:       m.Pool.Fee,
+	}
+}
+
+func (m QueryLiquidityPoolsResponse) Convert() interface{} {
+	var pools []QueryPoolResponse
+	for _, pool := range m.Pools {
+		pools = append(pools, QueryPoolResponse{
+			BaseCoin:  pool.Standard,
+			TokenCoin: pool.Token,
+			Liquidity: pool.Lpt,
+			Fee:       pool.Fee,
+		})
+	}
+	return &QueryAllPoolsResponse{
+		Pools: pools,
 	}
 }

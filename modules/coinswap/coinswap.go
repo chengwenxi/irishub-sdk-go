@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 
+	"gopkg.in/yaml.v2"
+
 	"github.com/irisnet/irishub-sdk-go/codec"
 	"github.com/irisnet/irishub-sdk-go/codec/types"
 	sdk "github.com/irisnet/irishub-sdk-go/types"
@@ -247,9 +249,9 @@ func (swap coinswapClient) QueryPool(denom string) (*QueryPoolResponse, error) {
 		return nil, sdk.Wrap(err)
 	}
 
-	resp, err := NewQueryClient(conn).Liquidity(
+	resp, err := NewQueryClient(conn).LiquidityPool(
 		context.Background(),
-		&QueryLiquidityRequest{Denom: denom},
+		&QueryLiquidityPoolRequest{LptDenom: denom},
 	)
 	if err != nil {
 		return nil, sdk.Wrap(err)
@@ -258,28 +260,20 @@ func (swap coinswapClient) QueryPool(denom string) (*QueryPoolResponse, error) {
 }
 
 func (swap coinswapClient) QueryAllPools() (*QueryAllPoolsResponse, error) {
-	coins, err := swap.totalSupply()
+	conn, err := swap.GenConn()
+	defer func() { _ = conn.Close() }()
 	if err != nil {
 		return nil, sdk.Wrap(err)
 	}
 
-	var pools []QueryPoolResponse
-	for _, coin := range coins {
-		//Compatible with old data
-		if strings.HasPrefix(coin.Denom, "swap/") {
-			continue
-		}
-		denom, err := GetTokenDenomFrom(coin.Denom)
-		if err != nil {
-			continue
-		}
-		res, err := swap.QueryPool(denom)
-		if err != nil {
-			return nil, sdk.Wrap(err)
-		}
-		pools = append(pools, *res)
+	resp, err := NewQueryClient(conn).LiquidityPools(
+		context.Background(),
+		&QueryLiquidityPoolsRequest{},
+	)
+	if err != nil {
+		return nil, sdk.Wrap(err)
 	}
-	return &QueryAllPoolsResponse{pools}, err
+	return resp.Convert().(*QueryAllPoolsResponse), err
 }
 
 func (swap coinswapClient) EstimateTokenForSoldBase(tokenDenom string,
@@ -387,4 +381,10 @@ func getOutputPrice(outputAmt, inputReserve, outputReserve sdk.Int, fee sdk.Dec)
 	numerator := inputReserve.Mul(outputAmt).Mul(sdk.NewIntWithDecimal(1, sdk.Precision))
 	denominator := (outputReserve.Sub(outputAmt)).Mul(sdk.NewIntFromBigInt(deltaFee.BigInt()))
 	return numerator.Quo(denominator).Add(sdk.OneInt())
+}
+
+// String returns a human readable string representation of the parameters.
+func (p Params) String() string {
+	out, _ := yaml.Marshal(p)
+	return string(out)
 }
